@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Regrow or Rot?</title>
+<script src="config.js"></script>
 <style>
   :root{
     --forest:#1f4e2c; --leaf:#4f8a35; --leaf-lt:#e8f2e1; --rot:#e4572e; --rot-lt:#fdebe5;
@@ -156,13 +157,14 @@
     </div>
     <div class="card noprint">
       <h3 style="margin-top:0">Turn in your results</h3>
+      <p id="sendMsg" style="font-weight:700;margin:0 0 8px"></p>
       <p>Copy this and paste it where your teacher asked (Google Classroom private comment or the class form), or print this page.</p>
       <pre id="rText"></pre>
       <div class="row">
         <button class="btn primary" id="copyBtn">Copy results</button>
         <button class="btn ghost" onclick="window.print()">Print</button>
         <button class="btn ghost" id="againBtn">Play again</button>
-        <a class="btn ghost" href="jar.html" style="text-decoration:none">Bonus: Keep the Jar Alive →</a>
+        <a class="btn ghost" id="jarLink" href="jar.html" style="text-decoration:none">Bonus: Keep the Jar Alive →</a>
       </div>
       <p id="copyMsg" class="hidden" style="color:var(--leaf);font-weight:700">Copied!</p>
     </div>
@@ -172,6 +174,8 @@
 <script>
 /* ===== Settings ===== */
 const GAME_LENGTH = 15;
+// Sections checked when the game opens. Options: "matter" (2-1), "water" (2-2), "macro" (2-3), "enzyme" (2-4), "design" (labs).
+const DEFAULT_TOPICS = ["matter", "water"];
 
 const TOPICS = {
   matter:{name:"Matter & Ions", sec:"2-1", cls:"t-matter", color:"#e4572e"},
@@ -658,7 +662,35 @@ function finish(){
     `Level path: ${S.log.map(r=>r.lvl+(r.right?"✓":"✗")).join(" ")}`
   ].join("\n");
   $("rText").textContent=txt;
+  const tp={}; Object.keys(TOPICS).forEach(k=>{const t=S.byTopic[k]; if(t) tp[k]=`${t.right}/${t.n}`;});
+  sendResults({type:"game", name:S.name, hour:S.hour,
+    sections:S.topics.map(k=>TOPICS[k].sec).join(", "), mastery:title,
+    correct:right, total:S.n, maxLevel:S.maxLevel, finalLevel:S.level, hints:S.hints, points:S.score,
+    topics:tp, path:S.log.map(r=>r.lvl+(r.right?"✓":"✗")).join(" ")}, $("sendMsg"));
+  $("jarLink").href = "jar.html?name="+encodeURIComponent(S.name)+"&hour="+encodeURIComponent(S.hour);
   window.scrollTo(0,0);
+}
+
+
+/* ===== Send results to the teacher's Google Sheet (set the URL in config.js) ===== */
+async function sendResults(payload, msgEl){
+  const url = window.RESULTS_URL;
+  if(!url){ if(msgEl) msgEl.textContent = ""; return; }
+  if(msgEl){ msgEl.textContent = "Sending your results to your teacher…"; msgEl.style.color = "var(--muted)"; }
+  const body = JSON.stringify(payload);
+  try{
+    const r = await fetch(url, {method:"POST", headers:{"Content-Type":"text/plain;charset=utf-8"}, body});
+    const j = await r.json();
+    if(!j.ok) throw new Error(j.error || "not ok");
+    if(msgEl){ msgEl.textContent = "✓ Sent to your teacher."; msgEl.style.color = "var(--leaf)"; }
+  }catch(e){
+    try{
+      await fetch(url, {method:"POST", mode:"no-cors", headers:{"Content-Type":"text/plain;charset=utf-8"}, body});
+      if(msgEl){ msgEl.textContent = "Sent – but please also copy your results as a backup."; msgEl.style.color = "var(--gold)"; }
+    }catch(e2){
+      if(msgEl){ msgEl.textContent = "Couldn't send automatically. Copy your results and turn them in."; msgEl.style.color = "var(--rot)"; }
+    }
+  }
 }
 
 /* ===== Wire up ===== */
@@ -666,7 +698,7 @@ $("lenTxt").textContent=GAME_LENGTH;
 (function(){
   let want = null;
   try{ const p = new URLSearchParams(location.search).get("topics"); if(p) want = p.split(",").map(x=>x.trim()).filter(x=>TOPICS[x]); }catch(e){}
-  if(!want || !want.length) want = Object.keys(TOPICS);
+  if(!want || !want.length) want = DEFAULT_TOPICS;
   $("topicPick").innerHTML = Object.keys(TOPICS).map(k=>`<label class="pick"><input type="checkbox" value="${k}" ${want.includes(k)?"checked":""}> ${TOPICS[k].sec} ${TOPICS[k].name}</label>`).join("");
 })();
 $("yesBtn").onclick=start;
