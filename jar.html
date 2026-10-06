@@ -4,7 +4,6 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Keep the Jar Alive</title>
-<script src="config.js"></script>
 <style>
   :root{
     --forest:#1f4e2c; --leaf:#4f8a35; --leaf-lt:#e8f2e1; --rot:#e4572e; --rot-lt:#fdebe5;
@@ -61,7 +60,7 @@
 </style>
 </head>
 <body>
-<header><div class="wrap"><h1>Keep the Jar Alive <span id="who" style="font-family:system-ui;font-size:.8rem;opacity:.85"></span></h1><a href="index.html">← Back to Regrow or Rot?</a></div></header>
+<header><div class="wrap"><h1>Keep the Jar Alive</h1><a href="index.html">← Back to Regrow or Rot?</a></div></header>
 <main class="wrap">
 
   <section class="card stage">
@@ -112,7 +111,6 @@
     <p class="big" id="oScore">0.0 cm</p>
     <p id="oBest" style="font-weight:700"></p>
     <p id="oWhy"></p>
-    <p id="sendMsg" style="font-weight:700;margin:0 0 10px;font-size:.9rem"></p>
     <button class="btn primary" id="againBtn" style="width:100%">One more try</button>
   </div>
 </div>
@@ -309,8 +307,6 @@ function gameOver(){
     ? "Why it rotted: bacteria and rotting tissue kept adding H⁺ ions. Below pH 6, the scrap's enzymes bend out of shape and the bacteria win. Tip: change the water BEFORE it leaves the green zone."
     : "Why it rotted: the water got too basic from extra OH⁻ ions. The scrap's enzymes don't work well above pH 7 either. Tip: fresh water resets the pH to 7.";
   $("overOv").classList.remove("hidden");
-  if (PLAYER.name) sendResults({type:"jar", name:PLAYER.name, hour:PLAYER.hour, score:Number(score.toFixed(1)), day:day()}, $("sendMsg"));
-  else $("sendMsg").textContent = "";
 }
 
 function start(){
@@ -320,32 +316,6 @@ function start(){
   clearInterval(timer); timer = setInterval(step, TICK);
   hud();
 }
-
-
-/* ===== Send results to the teacher's Google Sheet (set the URL in config.js) ===== */
-async function sendResults(payload, msgEl){
-  const url = window.RESULTS_URL;
-  if(!url){ if(msgEl) msgEl.textContent = ""; return; }
-  if(msgEl){ msgEl.textContent = "Sending your results to your teacher…"; msgEl.style.color = "var(--muted)"; }
-  const body = JSON.stringify(payload);
-  try{
-    const r = await fetch(url, {method:"POST", headers:{"Content-Type":"text/plain;charset=utf-8"}, body});
-    const j = await r.json();
-    if(!j.ok) throw new Error(j.error || "not ok");
-    if(msgEl){ msgEl.textContent = "✓ Sent to your teacher."; msgEl.style.color = "var(--leaf)"; }
-  }catch(e){
-    try{
-      await fetch(url, {method:"POST", mode:"no-cors", headers:{"Content-Type":"text/plain;charset=utf-8"}, body});
-      if(msgEl){ msgEl.textContent = "Sent – but please also copy your results as a backup."; msgEl.style.color = "var(--gold)"; }
-    }catch(e2){
-      if(msgEl){ msgEl.textContent = "Couldn't send automatically. Copy your results and turn them in."; msgEl.style.color = "var(--rot)"; }
-    }
-  }
-}
-
-let PLAYER = {name:"", hour:""};
-try{ const q = new URLSearchParams(location.search); PLAYER.name = (q.get("name")||"").slice(0,60); PLAYER.hour = (q.get("hour")||"").slice(0,10); }catch(e){}
-if (PLAYER.name) $("who").textContent = "· " + PLAYER.name;
 
 /* ===== Wire up ===== */
 (function ticks(){
