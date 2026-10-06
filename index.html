@@ -1,0 +1,690 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Regrow or Rot?</title>
+<style>
+  :root{
+    --forest:#1f4e2c; --leaf:#4f8a35; --leaf-lt:#e8f2e1; --rot:#e4572e; --rot-lt:#fdebe5;
+    --water:#2e86ab; --water-lt:#e3f1f7; --gold:#b7791f; --gold-lt:#faf1e1;
+    --ink:#1d2a22; --muted:#5d6b62; --card:#ffffff; --bg:#f3f6f1; --line:#d8e2d3;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--ink);line-height:1.45}
+  header{background:var(--forest);color:#fff;padding:14px 16px}
+  header .wrap{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+  header h1{font-family:Georgia,"Times New Roman",serif;font-size:1.35rem;margin:0}
+  header .sub{font-size:.85rem;opacity:.85}
+  .wrap{max-width:860px;margin:0 auto}
+  main{padding:16px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:20px;margin-bottom:16px}
+  .hud{display:grid;grid-template-columns:120px 1fr;gap:16px;align-items:center}
+  .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+  .stat{background:var(--leaf-lt);border-radius:10px;padding:8px;text-align:center}
+  .stat b{display:block;font-size:1.25rem}
+  .stat span{font-size:.72rem;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
+  .stage{font-weight:700;color:var(--forest);margin:6px 0 2px}
+  .progress{height:8px;background:var(--line);border-radius:6px;overflow:hidden}
+  .progress i{display:block;height:100%;background:var(--leaf);transition:width .3s}
+  .tag{display:inline-block;font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;padding:3px 10px;border-radius:20px;margin-right:6px}
+  .t-matter{background:var(--rot-lt);color:#a8381a}
+  .t-water{background:var(--water-lt);color:#1e5f7a}
+  .t-macro{background:var(--leaf-lt);color:var(--forest)}
+  .t-enzyme{background:var(--gold-lt);color:#8a5a12}
+  .t-design{background:#ece8f6;color:#4b3a8a}
+  .q{font-size:1.15rem;font-weight:600;margin:12px 0 14px}
+  .data{width:100%;border-collapse:collapse;margin:0 0 14px;font-size:.95rem}
+  .data th,.data td{border:1px solid var(--line);padding:6px 10px;text-align:left}
+  .data th{background:var(--leaf-lt)}
+  .choices{display:grid;gap:10px}
+  .choice{text-align:left;font:inherit;padding:12px 14px;border:2px solid var(--line);border-radius:10px;background:#fff;cursor:pointer;transition:border-color .15s,background .15s}
+  .choice:hover:not(:disabled){border-color:var(--leaf);background:var(--leaf-lt)}
+  .choice:disabled{cursor:default}
+  .choice.right{border-color:var(--leaf);background:var(--leaf-lt)}
+  .choice.wrong{border-color:var(--rot);background:var(--rot-lt)}
+  .row{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}
+  .btn{font:inherit;font-weight:700;border:0;border-radius:10px;padding:11px 18px;cursor:pointer}
+  .btn.primary{background:var(--forest);color:#fff}
+  .btn.ghost{background:transparent;border:2px solid var(--line);color:var(--ink)}
+  .btn.hint{background:var(--gold-lt);color:#8a5a12;border:2px solid #ecd3a6}
+  .btn:disabled{opacity:.5;cursor:default}
+  .box{border-radius:10px;padding:12px 14px;margin-top:14px}
+  .box.hintbox{background:var(--gold-lt);border-left:5px solid var(--gold)}
+  .box.good{background:var(--leaf-lt);border-left:5px solid var(--leaf)}
+  .box.bad{background:var(--rot-lt);border-left:5px solid var(--rot)}
+  .box p{margin:4px 0}
+  .levelmsg{font-weight:700;margin-top:6px}
+  input[type=text]{font:inherit;padding:10px 12px;border:2px solid var(--line);border-radius:10px;width:100%;max-width:340px}
+  label{font-weight:600;display:block;margin:10px 0 6px}
+  .ladder{display:grid;gap:6px;margin:12px 0;padding:0;list-style:none}
+  .ladder li{display:flex;gap:10px;align-items:baseline}
+  .ladder b{min-width:96px;color:var(--forest)}
+  .bars{display:grid;gap:10px;margin-top:8px}
+  .bar{display:grid;grid-template-columns:140px 1fr 70px;gap:10px;align-items:center;font-size:.92rem}
+  .bar .track{height:14px;background:var(--line);border-radius:8px;overflow:hidden}
+  .bar .fill{height:100%;border-radius:8px}
+  .big{font-size:2rem;font-weight:800;color:var(--forest);margin:0}
+  pre{white-space:pre-wrap;background:#f6f8f5;border:1px solid var(--line);border-radius:10px;padding:12px;font-size:.85rem}
+  .hidden{display:none}
+  .picks{display:flex;flex-wrap:wrap;gap:8px}
+  .pick{display:flex;gap:6px;align-items:center;font-weight:600;border:2px solid var(--line);border-radius:10px;padding:6px 10px;margin:0;cursor:pointer}
+  @media (max-width:560px){
+    .hud{grid-template-columns:80px 1fr}
+    .stats{grid-template-columns:repeat(2,1fr)}
+    .bar{grid-template-columns:100px 1fr 56px}
+  }
+  @media print{header,.noprint{display:none}.card{border:0}}
+</style>
+</head>
+<body>
+<header><div class="wrap">
+  <div><h1>Regrow or Rot?</h1><div class="sub">Chapter 2 chemistry · Waste to Plate</div></div>
+  <div class="sub" id="whoTag"></div>
+</div></header>
+
+<main class="wrap">
+
+  <!-- START -->
+  <section id="start" class="card">
+    <h2 style="margin-top:0;font-family:Georgia,serif">Grow your scrap from seed to harvest</h2>
+    <p>Answer questions about the chemistry of regrowth. Your scrap grows as you level up.</p>
+    <ul class="ladder">
+      <li><b>1 · Seed</b> Vocabulary</li>
+      <li><b>2 · Root</b> One concept</li>
+      <li><b>3 · Sprout</b> Explain a regrow jar</li>
+      <li><b>4 · Leafy</b> Connect two ideas</li>
+      <li><b>5 · Harvest</b> Read data and make a claim</li>
+    </ul>
+    <p><strong>Rules:</strong> Get one right and you get another at the same level. Get <strong>two in a row</strong> right and you level up. Miss one and you drop a level. Stuck? Press <strong>Hint</strong> for a strategy (it costs half the points). The game is <span id="lenTxt"></span> questions.</p>
+    <label>Sections in this game</label>
+    <div class="picks" id="topicPick"></div>
+    <label for="nameIn">First and last name</label>
+    <input type="text" id="nameIn" autocomplete="off">
+    <label for="hourIn">Class hour</label>
+    <input type="text" id="hourIn" autocomplete="off" style="max-width:120px">
+    <p class="q" style="margin-top:20px">Ready to play?</p>
+    <div class="row">
+      <button class="btn primary" id="yesBtn">Yes – start</button>
+      <button class="btn ghost" id="noBtn">No – wait</button>
+    </div>
+    <p id="waitMsg" class="hidden" style="color:var(--muted)">No problem. Press <strong>Yes</strong> whenever you're ready.</p>
+    <p id="nameErr" class="hidden" style="color:var(--rot);font-weight:600">Enter your name first so your teacher gets credit for your score.</p>
+    <p id="topicErr" class="hidden" style="color:var(--rot);font-weight:600">Pick at least one section.</p>
+  </section>
+
+  <!-- GAME -->
+  <section id="game" class="hidden">
+    <div class="card hud">
+      <svg id="plant" viewBox="0 0 120 140" aria-label="Your scrap"></svg>
+      <div>
+        <div class="stats">
+          <div class="stat"><b id="sLevel">1</b><span>Level</span></div>
+          <div class="stat"><b id="sStreak">0</b><span>Streak</span></div>
+          <div class="stat"><b id="sScore">0</b><span>Points</span></div>
+          <div class="stat"><b id="sQ">1/20</b><span>Question</span></div>
+        </div>
+        <div class="stage" id="stageName">Seed</div>
+        <div class="progress"><i id="prog" style="width:0%"></i></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <span class="tag" id="topicTag"></span><span class="tag" style="background:#eef1ec;color:var(--muted)" id="lvlTag"></span>
+      <div class="q" id="qText"></div>
+      <div id="qData"></div>
+      <div class="choices" id="choices"></div>
+      <div id="hintBox" class="box hintbox hidden"></div>
+      <div id="fb" class="box hidden"></div>
+      <div class="row">
+        <button class="btn hint" id="hintBtn">Hint</button>
+        <button class="btn primary hidden" id="nextBtn">Next question</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- RESULTS -->
+  <section id="results" class="hidden">
+    <div class="card">
+      <p style="margin:0;color:var(--muted)" id="rWho"></p>
+      <p class="big" id="rTitle"></p>
+      <p id="rSummary"></p>
+      <h3>Accuracy by topic</h3>
+      <div class="bars" id="rBars"></div>
+      <h3>What to review</h3>
+      <div id="rReview"></div>
+    </div>
+    <div class="card noprint">
+      <h3 style="margin-top:0">Turn in your results</h3>
+      <p>Copy this and paste it where your teacher asked (Google Classroom private comment or the class form), or print this page.</p>
+      <pre id="rText"></pre>
+      <div class="row">
+        <button class="btn primary" id="copyBtn">Copy results</button>
+        <button class="btn ghost" onclick="window.print()">Print</button>
+        <button class="btn ghost" id="againBtn">Play again</button>
+        <a class="btn ghost" href="jar.html" style="text-decoration:none">Bonus: Keep the Jar Alive →</a>
+      </div>
+      <p id="copyMsg" class="hidden" style="color:var(--leaf);font-weight:700">Copied!</p>
+    </div>
+  </section>
+</main>
+
+<script>
+/* ===== Settings ===== */
+const GAME_LENGTH = 15;
+
+const TOPICS = {
+  matter:{name:"Matter & Ions", sec:"2-1", cls:"t-matter", color:"#e4572e"},
+  water:{name:"Water & pH", sec:"2-2", cls:"t-water", color:"#2e86ab"},
+  macro:{name:"Macromolecules", sec:"2-3", cls:"t-macro", color:"#4f8a35"},
+  enzyme:{name:"Enzymes", sec:"2-4", cls:"t-enzyme", color:"#b7791f"},
+  design:{name:"Data & Design", sec:"Labs", cls:"t-design", color:"#6a54b0"}
+};
+const STAGES = ["Seed","Root","Sprout","Leafy","Harvest"];
+const LEVEL_SKILL = ["Vocabulary","One concept","Explain a jar","Connect two ideas","Data & claims"];
+
+/* ===== Question bank =====
+   a = correct answer (first choice is always written as correct; choices are shuffled)
+   tip = suggestion based on the most common cause of a wrong answer */
+const BANK = [
+ // ---------- LEVEL 1: vocabulary ----------
+ {l:1,t:"matter",q:"What do we call an atom that has gained or lost electrons, so it has a charge?",
+  c:["Ion","Polymer","Molecule","Element"],
+  h:"Look for the word that is about electric charge, not about neutrons or bonding.",
+  ex:"An ion is a charged atom (or group of atoms), like K⁺ or NO₃⁻.",
+  tip:"Molecules and elements can be neutral. Charge only comes from gaining or losing electrons – that makes an ion."},
+ {l:1,t:"matter",q:"Which particle has a negative charge?",
+  c:["Electron","Proton","Neutron","Nucleus"],
+  h:"Two particles live in the nucleus. The negative one moves around outside it.",
+  ex:"Electrons are negative and move around the nucleus. They do all the bonding.",
+  tip:"Remember P for Positive: protons are +. Neutrons are Neutral."},
+ {l:1,t:"water",q:"A molecule with a slightly positive end and a slightly negative end is called…",
+  c:["Polar","Ionic","Saturated","Neutral"],
+  h:"Think of a magnet with two poles.",
+  ex:"Water is polar: the O end is slightly negative and the H ends are slightly positive.",
+  tip:"Ionic means electrons were fully transferred. Polar means they are shared unevenly."},
+ {l:1,t:"water",q:"A substance that resists sudden changes in pH is a…",
+  c:["Buffer","Solvent","Catalyst","Solute"],
+  h:"It acts like a cushion or shock absorber for pH.",
+  ex:"Buffers are weak acids or bases that react with extra acid or base to keep pH steady.",
+  tip:"A catalyst speeds up reactions. A buffer protects pH."},
+ {l:1,t:"water",q:"In salt water, the water is the…",
+  c:["Solvent","Solute","Suspension","Buffer"],
+  h:"Which one does the dissolving, and which one gets dissolved?",
+  ex:"Water is the solvent (it does the dissolving). Salt is the solute.",
+  tip:"Solute = the stuff that dissolves. Solvent = the liquid it dissolves into. 'Solvent' is usually the bigger amount."},
+ {l:1,t:"macro",q:"The small units that link together to build a polymer are called…",
+  c:["Monomers","Products","Ions","Substrates"],
+  h:"Mono- means one. Poly- means many.",
+  ex:"Monomers are single units (like beads). Many linked together make a polymer (the necklace).",
+  tip:"Use the prefixes: mono = one, poly = many."},
+ {l:1,t:"macro",q:"Which polysaccharide do plants use to STORE extra sugar?",
+  c:["Starch","Cellulose","Glycogen","DNA"],
+  h:"Think of what potatoes are full of.",
+  ex:"Plants store sugar as starch. That's the 'packed lunch' in a scrap's base.",
+  tip:"Cellulose is for structure (celery strings). Glycogen is how animals store sugar."},
+ {l:1,t:"enzyme",q:"The reactant that an enzyme acts on is called the…",
+  c:["Substrate","Product","Active site","Catalyst"],
+  h:"It's the 'key' that fits into the enzyme's 'lock'.",
+  ex:"The substrate binds to the enzyme's active site.",
+  tip:"The active site is the pocket ON the enzyme. The substrate is the molecule that fits into it."},
+ {l:1,t:"enzyme",q:"The energy needed to get a chemical reaction started is called…",
+  c:["Activation energy","Heat capacity","Light energy","Chemical bond"],
+  h:"Picture the 'hill' a reaction has to climb before it can go.",
+  ex:"Activation energy is the hill every reaction must climb to start.",
+  tip:"Heat capacity is about how much energy water needs to warm up, not about starting reactions."},
+
+ // ---------- LEVEL 2: one concept ----------
+ {l:2,t:"matter",q:"Potassium in fertilizer is K⁺. What happened to the potassium atom?",
+  c:["It lost one electron","It gained one electron","It gained one proton","It lost one proton"],
+  h:"Electrons are negative. What happens to the overall charge if you take a negative away?",
+  ex:"Losing a negative electron leaves one extra proton, so the charge is +1.",
+  tip:"Common mix-up: 'positive' feels like 'gained'. But losing a NEGATIVE particle makes an atom MORE positive. Protons never change when ions form."},
+ {l:2,t:"matter",q:"Nitrogen's atomic number is 7. How many electrons does a neutral nitrogen atom have?",
+  c:["7","14","8","0"],
+  h:"In a neutral atom, the positive and negative charges cancel out.",
+  ex:"Neutral atom: electrons = protons = atomic number = 7.",
+  tip:"Atomic number = number of protons. 'Neutral' means electrons match protons exactly."},
+ {l:2,t:"matter",q:"Which element from fertilizer does a plant need to build amino acids and proteins?",
+  c:["Nitrogen (N)","Potassium (K)","Phosphorus (P)","Chlorine (Cl)"],
+  h:"Look at the amino group of an amino acid: –NH₂.",
+  ex:"Amino acids contain nitrogen. Without the N from fertilizer, a plant can't build proteins like enzymes.",
+  tip:"All three fertilizer elements matter, but the 'N' in the amino group is the one proteins need."},
+ {l:2,t:"macro",q:"Photosynthesis changes light energy into…",
+  c:["Chemical energy stored in glucose","Heat energy stored in water","Nitrogen for the roots","Starch that is used up right away"],
+  h:"Look at the 'From light to lunch' equation. What molecule does it make, and where is the energy kept?",
+  ex:"Leaves capture light and store the energy in the chemical bonds of glucose.",
+  tip:"Energy isn't lost or turned into nutrients – it's stored in the bonds of the sugar the leaves make."},
+ {l:2,t:"water",q:"How many times more H⁺ ions does a solution at pH 5 have than one at pH 7?",
+  c:["100 times","2 times","10 times","20 times"],
+  h:"Each step on the pH scale is ×10. How many steps is it from 7 to 5?",
+  ex:"Two steps: 10 × 10 = 100 times more H⁺.",
+  tip:"The pH scale multiplies, it doesn't add. Two steps is 10 × 10, not 10 + 10."},
+ {l:2,t:"water",q:"Lemon juice has a pH of about 2. That means it is…",
+  c:["Strongly acidic","Weakly acidic","Neutral","Basic"],
+  h:"7 is neutral. Which direction is acid, and how far is 2 from 7?",
+  ex:"Below 7 is acidic, and 2 is far below, so lemon juice is strongly acidic.",
+  tip:"Lower pH = more H⁺ = MORE acidic. The small number means a strong acid, not a weak one."},
+ {l:2,t:"macro",q:"Most enzymes belong to which group of macromolecules?",
+  c:["Proteins","Carbohydrates","Lipids","Nucleic acids"],
+  h:"Which macromolecule is built from amino acids and does most of the 'work' in cells?",
+  ex:"Most enzymes are proteins made of amino acids.",
+  tip:"Carbohydrates store energy; nucleic acids store information; proteins do the jobs (like enzymes)."},
+ {l:2,t:"macro",q:"Amino acids contain which element that carbohydrates usually don't?",
+  c:["Nitrogen","Carbon","Oxygen","Hydrogen"],
+  h:"Look at the amino group: –NH₂.",
+  ex:"Amino acids have an amino group (–NH₂), which contains nitrogen. Carbohydrates are only C, H and O.",
+  tip:"Carbohydrates = C, H, O only. That's one reason plants need nitrogen (the N in fertilizer) to make proteins."},
+ {l:2,t:"enzyme",q:"How does an enzyme speed up a reaction?",
+  c:["It lowers the activation energy","It adds energy to the reactants","It gets used up as a reactant","It raises the temperature"],
+  h:"Think of the 'hill' picture. Does an enzyme push harder, or make the hill smaller?",
+  ex:"Enzymes lower the activation energy 'hill' and are not used up.",
+  tip:"Enzymes don't add energy or heat. They make the starting hill smaller so the reaction happens more easily."},
+
+ {l:2,t:"matter",q:"Carbon-12 and carbon-14 are isotopes. They differ in their number of…",
+  c:["Neutrons","Protons","Electrons","Bonds they can form"],
+  h:"If the number of protons changed, it wouldn't be carbon anymore.",
+  ex:"Isotopes have the same protons and electrons but different neutrons (6 vs. 8).",
+  tip:"Protons decide the element. Change protons and you get a different element, not an isotope."},
+ {l:2,t:"matter",q:"In which type of bond are electrons SHARED between atoms?",
+  c:["Covalent bond","Ionic bond","Hydrogen bond","Polar bond"],
+  h:"'Co-' means together, like co-workers sharing a job.",
+  ex:"Covalent bonds share electrons. Ionic bonds transfer them.",
+  tip:"Ionic = transferred (one atom takes). Covalent = shared."},
+
+ // ---------- LEVEL 3: explain a regrow jar ----------
+ {l:3,t:"water",q:"Why does fertilizer have to fully dissolve before it can help a scrap?",
+  c:["Roots can only absorb nutrients dissolved as ions","Dissolving makes the fertilizer more acidic","Dissolving turns the fertilizer into glucose","Undissolved fertilizer is too heavy to sink"],
+  h:"Think about what form nutrients must be in to cross into a root.",
+  ex:"Dissolving separates fertilizer into ions (K⁺, NO₃⁻, PO₄³⁻), the only form roots can take in.",
+  tip:"Fertilizer gives nutrients, not energy or sugar. The key word is IONS."},
+ {l:3,t:"macro",q:"A fresh scrap has no green leaves yet. Where does it get energy to grow its first shoots?",
+  c:["Starch stored in its base","Photosynthesis in its leaves","Ions from fertilizer","Glucose dissolved in the water"],
+  h:"No leaves means no photosynthesis yet. What did the plant save for later?",
+  ex:"It breaks down stored starch into glucose for energy until it has working leaves.",
+  tip:"Fertilizer ions are building materials, not an energy source. Energy comes from stored starch, then later from light."},
+ {l:3,t:"water",q:"Dyed water climbs up a celery stalk. What mostly causes this?",
+  c:["Cohesion and adhesion (capillary action)","Enzymes pumping the water","The water becoming a base","Ions turning into starch"],
+  h:"Water sticks to the walls of the tubes AND to itself.",
+  ex:"Adhesion pulls water up the narrow tubes; cohesion holds the column together.",
+  tip:"Capillary action is a property of water's hydrogen bonds, not an enzyme reaction."},
+ {l:3,t:"matter",q:"A scrap in plain tap water grows well, then stalls after two weeks with pale leaves. Best explanation?",
+  c:["It used up its nutrient ions (N, P, K) and tap water has few","Tap water is too polar","It has too much stored starch","The water got too cold"],
+  h:"What does a plant need to build proteins and chlorophyll that plain water doesn't supply?",
+  ex:"Pale leaves and slow growth are signs of too few nutrient ions, especially nitrogen.",
+  tip:"Water alone gives no N, P or K. Once the scrap's own supply runs out, growth stalls."},
+ {l:3,t:"enzyme",q:"A celery base is brown and slimy, and the water is cloudy and smells sour. What is mainly happening?",
+  c:["Bacteria and fungi are using enzymes to break the scrap down","The plant's enzymes are building new cells","The scrap is doing extra photosynthesis","A buffer is protecting the scrap"],
+  h:"Whose enzymes are 'winning' in this jar – the plant's or the microbes'?",
+  ex:"That's rot: microbes' enzymes digesting the scrap's tissue for their own food.",
+  tip:"Both regrowth and rot use enzymes. The question is WHOSE enzymes are doing the work."},
+ {l:3,t:"water",q:"A jar's water was pH 7.0 on Day 1 and pH 5.5 on Day 5. What changed?",
+  c:["It became more acidic – H⁺ ions were added","It became more basic – OH⁻ ions were added","It stayed neutral","It became a suspension"],
+  h:"Which direction did the number move, and what does a lower number mean?",
+  ex:"The pH dropped, so the water gained H⁺ ions and became more acidic (about 30× more H⁺).",
+  tip:"Lower pH number = more acidic. It's easy to flip this because 'lower' sounds like 'less'."},
+ {l:3,t:"macro",q:"The tough 'strings' in a celery stalk are made mostly of…",
+  c:["Cellulose","Starch","Protein","Lipid"],
+  h:"It's a glucose polymer used for structure and strength, not storage.",
+  ex:"Cellulose fibers give plants strength. Celery strings are bundles of them.",
+  tip:"Both starch and cellulose are made of glucose: starch = storage, cellulose = structure."},
+ {l:3,t:"matter",q:"A student adds way too much fertilizer. The scrap wilts even though it's sitting in water. Why?",
+  c:["The water outside is 'saltier' than the cells, so water moves out of the roots","The ions block light from the leaves","Too many ions add too much energy","The fertilizer makes the water nonpolar"],
+  h:"Think about which way water moves when one side has more dissolved ions.",
+  ex:"With too many ions outside, osmosis pulls water OUT of root cells, so the plant dries out in water.",
+  tip:"More fertilizer is not always better. Too many ions reverses the direction water moves."},
+ {l:3,t:"macro",q:"How does the waxy coating on leaves help the plant?",
+  c:["It's a lipid layer that keeps water in","It stores the plant's DNA","It speeds up chemical reactions","It absorbs nutrient ions from the air"],
+  h:"Lipids and water don't mix.",
+  ex:"Wax is a lipid. It waterproofs leaves so the plant doesn't lose water.",
+  tip:"Lipids: energy storage, membranes and waterproofing. Enzymes (proteins) speed reactions."},
+
+ // ---------- LEVEL 4: connect two ideas ----------
+ {l:4,t:"enzyme",q:"A jar's pH fell to 4.5 and the scrap stopped growing. Which explanation uses enzymes correctly?",
+  c:["Extra H⁺ ions disrupted the bonds holding the enzyme's shape, so the active site no longer fits its substrate","The acid added energy, so the plant's reactions went too fast","The H⁺ ions turned into glucose and overfed the plant","Low pH made the water nonpolar so it couldn't climb the stem"],
+  h:"Connect two ideas: what does pH do to a protein's shape, and why does shape matter for an enzyme?",
+  ex:"Extreme pH weakens the hydrogen bonds holding an enzyme's shape. A changed active site can't bind its substrate, so growth reactions slow.",
+  tip:"Strong answers link pH → enzyme SHAPE → active site → substrate can't fit. Acid doesn't 'add energy'."},
+ {l:4,t:"enzyme",q:"Catalase lab foam height: ice bath 8 mm, room temp 30 mm, very hot 3 mm. Why is the hot trial the lowest?",
+  c:["High heat broke bonds and changed the enzyme's shape, so the active site stopped working","Hot hydrogen peroxide contains no oxygen","Heat used the enzyme up faster","Cold is always best for enzymes"],
+  h:"If heat just made molecules move faster, foam would go UP. Something else happened to the enzyme.",
+  ex:"Too much heat unfolds the enzyme. Its active site changes shape, so it can't break down H₂O₂.",
+  tip:"Warmer speeds reactions only up to a point. Past that, the enzyme loses its shape. Enzymes are not 'used up'."},
+ {l:4,t:"water",q:"The same amount of acid was added to two jars. Jar A went from pH 6.8 to 6.6. Jar B went from pH 6.8 to 4.9. Which jar contains a buffer?",
+  c:["Jar A","Jar B","Both","Neither"],
+  h:"A buffer resists change. Which jar barely changed?",
+  ex:"Jar A barely moved, so something in it reacted with the acid to hold pH steady: a buffer.",
+  tip:"Look for the SMALLER change. Buffers don't stop change completely; they make it small."},
+ {l:4,t:"macro",q:"Once a scrap grows green shoots, how does its energy supply change?",
+  c:["It makes glucose from light by photosynthesis and can store extra as starch","It starts absorbing glucose from the water","It breaks down its cellulose for energy","Fertilizer ions become its energy source"],
+  h:"Green means chlorophyll. What does chlorophyll capture?",
+  ex:"Leaves capture light and build glucose (6CO₂ + 6H₂O + light → C₆H₁₂O₆ + 6O₂). Extra glucose is stored as starch.",
+  tip:"Before leaves: stored starch. After leaves: light → glucose. Ions are nutrients, never the energy source."},
+ {l:4,t:"enzyme",q:"Why does changing the jar water every day help a scrap regrow instead of rot?",
+  c:["It removes microbes and wastes that lower pH, keeping the plant's enzymes working","It adds extra starch to the base","It adds glucose for the plant to eat","It raises the water's heat capacity"],
+  h:"Think about two problems in old water: who is growing in it, and what's happening to pH.",
+  ex:"Fresh water removes rot microbes and keeps pH in range, so the plant's enzymes win.",
+  tip:"Link BOTH ideas: fewer microbe enzymes breaking tissue down AND steady pH for the plant's enzymes."},
+ {l:4,t:"macro",q:"A scrap in plain tap water has pale leaves and has stopped growing. Which explanation connects nitrogen to enzymes correctly?",
+  c:["No nitrogen means no amino acids, so the plant can't build the enzyme proteins it needs to grow","Nitrogen is the plant's energy source, so it ran out of food","Without nitrogen, the water becomes too basic for enzymes","Nitrogen is needed to make starch, so the base is empty"],
+  h:"Connect two ideas: what is nitrogen built into, and what are enzymes made of?",
+  ex:"Amino acids contain nitrogen. Enzymes are proteins made of amino acids, so a nitrogen-starved plant can't build them.",
+  tip:"Nitrogen is a building material, not an energy source. Starch has no nitrogen in it at all."},
+ {l:4,t:"enzyme",q:"Why does every crop have a productive pH RANGE instead of one perfect pH number?",
+  c:["Enzymes keep their shape well enough to work across a range, failing only when pH moves too far","pH meters are never accurate","Plants don't have enzymes, so pH doesn't matter much","pH only affects the water, not the plant"],
+  h:"Does a protein's shape fall apart at the tiniest change, or only past a limit?",
+  ex:"Enzymes work best near an optimum but still work nearby. Activity drops as pH moves farther away.",
+  tip:"Connect pH to enzyme shape. Small changes bend the shape a little; big changes break it."},
+
+ {l:4,t:"matter",q:"Fertilizer called potassium nitrate (KNO₃) dissolves into K⁺ and NO₃⁻ ions. Which statement is correct?",
+  c:["The ionic bond between K⁺ and NO₃⁻ breaks apart, but the covalent bonds inside NO₃⁻ stay together","Every bond breaks, so the water fills with single atoms","Potassium gains an electron when it touches water","NO₃⁻ loses its charge once it dissolves"],
+  h:"Two kinds of bonds are in this crystal. Which kind holds the ions to each other, and which holds the atoms inside nitrate?",
+  ex:"Water pulls apart the ionic bond between the two ions. The N and O atoms inside nitrate share electrons (covalent), so nitrate stays together as one charged group.",
+  tip:"Dissolving separates ions; it doesn't smash molecules into single atoms. NO₃⁻ travels as one unit."},
+ {l:4,t:"matter",q:"Jar A: fertilizer stirred until it fully dissolves. Jar B: the same fertilizer pellets sit undissolved on the bottom. Only the scrap in Jar A grows. Why?",
+  c:["Roots can only absorb nutrients as dissolved ions, and the pellets never broke into ions","Pellets add too much energy to the water","Dissolved fertilizer makes the water polar","Jar B has more nutrients, so it causes osmosis"],
+  h:"Connect two ideas: what does dissolving do to fertilizer, and what form must nutrients be in for roots?",
+  ex:"Dissolving separates fertilizer into ions like K⁺ and NO₃⁻. Undissolved pellets stay solid, so the roots can't take in those nutrients.",
+  tip:"Water is already polar – fertilizer doesn't make it polar. The key idea is IONS that roots can absorb."},
+ {l:4,t:"matter",q:"A scrap is watered with fertilizer made from nitrogen-15 (a heavier isotope). After a week, where would scientists find most of the N-15?",
+  c:["In proteins and DNA of the new leaves","In the starch stored in the base","In the waxy leaf coating","Still in the water, because plants can't use isotopes"],
+  h:"Isotopes react just like the normal element. Which molecules contain nitrogen?",
+  ex:"Plants use N-15 like normal nitrogen, building it into proteins and DNA in new growth.",
+  tip:"Isotopes have the same chemistry as normal atoms. Starch and wax have no nitrogen in them."},
+ {l:4,t:"water",q:"A jar went from pH 7 to pH 5. A student says, \"Now it has 2 times more H⁺ ions.\" What is the correct statement?",
+  c:["It has 100 times more H⁺, because each pH step is 10 times","The student is right: 7 − 5 = 2","It has 20 times more H⁺, because 2 steps × 10","It has fewer H⁺ ions, because the number went down"],
+  h:"Write out each step from 7 to 6 to 5. What do you multiply by at each step?",
+  ex:"pH 7 → 6 is ×10, and 6 → 5 is ×10 again: 10 × 10 = 100 times more H⁺.",
+  tip:"The pH scale multiplies at every step – it never adds. And a LOWER pH means MORE H⁺."},
+ {l:4,t:"water",q:"Why does salt dissolve in water while cooking oil just floats on top?",
+  c:["Water's charged ends pull apart charged ions, but oil has no charged ends for water to grab","Salt is heavier than oil, so it sinks and dissolves","Oil is a buffer that resists water","Salt makes hydrogen bonds with oil"],
+  h:"Think about what water's slightly + and slightly – ends are attracted to.",
+  ex:"Water's polar ends surround Na⁺ and Cl⁻ and pull them apart. Oil (a lipid) isn't charged, so water has nothing to grab.",
+  tip:"Dissolving depends on charges, not weight. Water dissolves ions and other polar things."},
+
+ // ---------- LEVEL 5: data & claims ----------
+ {l:5,t:"design",q:"Starch Hunt results vs. regrowth. Which claim does the data best support?",
+  data:[["Scrap","Iodine color (0–3)","Days to first new shoot"],["Potato piece","3","4"],["Carrot top","2","7"],["Celery base","1","10"]],
+  c:["Scraps with more stored starch started regrowing faster","Scraps with more starch regrew slower","Starch has no relationship to regrowth","The iodine made the potato grow faster"],
+  h:"Match the highest iodine score to its number of days, then the lowest.",
+  ex:"More starch (higher score) lined up with fewer days to first shoot – more stored energy, faster start.",
+  tip:"Fewer days = FASTER. A common slip is reading 'bigger number' as 'better'. Also, iodine is only a test; it doesn't cause growth."},
+ {l:5,t:"design",q:"Enzyme lab results. Which care tip for families follows from the data?",
+  data:[["Solution","pH","Foam height at 60 s"],["Vinegar","3","5 mm"],["Water","7","32 mm"],["Baking soda","9","18 mm"]],
+  c:["Keep jar water near neutral and change it when it turns sour","Add vinegar to keep bacteria away","Add baking soda every week","pH doesn't matter, so any water works"],
+  h:"Where was the enzyme most active? Your tip should keep the plant in that zone.",
+  ex:"Enzyme activity peaked near pH 7, so families should keep water near neutral and replace it when it sours (acidifies).",
+  tip:"A care tip must follow from the evidence. Vinegar gave the LEAST enzyme activity, so it would hurt the plant too."},
+ {l:5,t:"design",q:"Light experiment results (biomass after 2 weeks). Which claim is best supported?",
+  data:[["Light hours/day","Biomass (g)"],["8","12"],["12","18"],["16","19"],["20","19"]],
+  c:["Extra light past about 12–16 hours adds almost no biomass","More light always means more biomass","Light has no effect on biomass","20 hours is the best value for families"],
+  h:"Look at how much biomass each extra 4 hours adds. Where does the gain shrink?",
+  ex:"8→12 h added 6 g, but 12→20 h added only 1 g. Past ~12–16 h, extra light (and electricity cost) buys almost nothing.",
+  tip:"Check the CHANGE between rows, not just the biggest number. Equal results at 16 and 20 h mean the extra 4 h was wasted."},
+ {l:5,t:"design",q:"A team grew one onion with fertilizer (4 cm) and one without (2 cm). They claim 'fertilizer doubles growth.' What's the biggest problem?",
+  c:["One scrap per condition – the difference could be chance; they need repeated trials","They should have measured in inches","Onions can't absorb fertilizer","They should measure color, not height"],
+  h:"Could two scraps differ by 2 cm just because scraps are different? How do scientists rule that out?",
+  ex:"With only one trial each, the result could be random. Use at least 3 trials per condition and compare averages.",
+  tip:"A claim is only as strong as the data behind it. Repeated trials make results reliable."},
+ {l:5,t:"design",q:"Fertilizer strength results. Which explanation covers BOTH ends of the data?",
+  data:[["Fertilizer (ppm)","New growth (cm)","Notes"],["0","2","pale leaves"],["400","6",""],["800","8",""],["1600","3","wilted"]],
+  c:["Low: too few nutrient ions. High: so many ions that osmosis pulls water out of the roots","More fertilizer always helps, so 1600 ppm was measured wrong","Low: too much water. High: not enough light","Fertilizer only matters at 800 ppm"],
+  h:"Explain the low end and the high end separately, then pick the answer that does both.",
+  ex:"0 ppm = not enough N, P, K ions (pale). 1600 ppm = water outside too 'salty', so osmosis pulls water out (wilting).",
+  tip:"Don't throw out data that doesn't fit 'more is better'. Too many ions causes its own problem."},
+ {l:5,t:"design",q:"In the catalase lab, a team tests three temperatures. Which variable must they keep the SAME (control)?",
+  c:["The mass of scrap and volume of H₂O₂","The temperature of the water bath","The foam height","Nothing – changing everything makes it faster"],
+  h:"Temperature is what they change. Foam height is what they measure. What's left?",
+  ex:"Keep scrap mass and H₂O₂ volume the same so temperature is the only thing changing.",
+  tip:"Independent variable = what you change (temperature). Dependent = what you measure (foam). Controls = everything else kept the same."},
+ {l:5,t:"design",q:"A team wants to test whether water pH affects how fast romaine regrows. Which is the best plan?",
+  c:["3 jars each at pH 5, 6.5 and 8; same scrap size, light and water volume; measure leaf length daily","1 jar at pH 6.5; measure leaf length daily","3 jars at pH 6.5 in different windows","Change pH and light at the same time to save days"],
+  h:"Look for: one thing changed, everything else the same, and repeated trials.",
+  ex:"It changes only pH, controls the other variables, uses 3 trials per condition, and measures a number.",
+  tip:"If two variables change at once, you can't tell which one caused the result."},
+ {l:5,t:"water",q:"Two celery jars, pH measured every other day. Which claim does the data best support?",
+  data:[["Day","Water never changed","Water changed daily"],["1","7.0","7.0"],["3","6.4","6.8"],["5","5.5","6.7"],["7","4.8","6.8"]],
+  c:["Unchanged water got steadily more acidic; changing it daily kept the pH in the vegetable range","Both jars stayed about the same","The unchanged water became more basic","Changing the water made it too acidic"],
+  h:"Follow each column from Day 1 to Day 7. Which one leaves the pH 6–7 range, and which way does it go?",
+  ex:"The unchanged jar fell from 7.0 to 4.8 (more H⁺ = more acidic). The changed jar stayed near 6.7–6.8, inside the 6–7 range.",
+  tip:"A falling pH number means MORE acidic, not less. Compare each column to the 6–7 target zone."},
+ {l:5,t:"water",q:"Celery Climb results: how high dyed water climbed. Which claim is best supported?",
+  data:[["Time","Fresh-cut stalk (cm)","Day-old cut stalk (cm)"],["10 min","2","0.5"],["30 min","5","1"],["60 min","9","2"]],
+  c:["Water climbed faster in the fresh-cut stalk, so open tubes help capillary action","The day-old stalk climbed faster","Time had no effect on how high water climbed","The dye caused the water to climb"],
+  h:"Compare the two columns at each time. Which is always higher?",
+  ex:"At every time the fresh cut was higher (9 cm vs. 2 cm at 60 min). Fresh, open tubes let adhesion and cohesion pull water up faster.",
+  tip:"Compare columns at the SAME time. The dye only makes the water visible; it doesn't pull it up."},
+ {l:5,t:"water",q:"Drops of vinegar were added to two jars. Which conclusion and care tip follow from the data?",
+  data:[["Drops of vinegar","Jar with buffer (pH)","Jar without buffer (pH)"],["0","6.8","6.8"],["2","6.7","5.9"],["4","6.6","4.8"]],
+  c:["The buffer kept pH in the 6–7 range, so a buffer could protect a regrow jar","The buffer made the water more acidic","Vinegar has no effect on pH","Families should add vinegar to keep the pH steady"],
+  h:"Which jar's pH barely moved? Is that jar still in the vegetable range?",
+  ex:"With the buffer, pH only fell 0.2. Without it, pH fell 2.0 and left the 6–7 range. A buffer resists pH change.",
+  tip:"Look for the SMALLER change. A care tip must keep the plant in the range where it does best."},
+ {l:5,t:"matter",q:"Scraps were placed in water with different amounts of salt for 2 days. Which explanation fits the data?",
+  data:[["Salt added (g per liter)","Leaves after 2 days"],["0","firm"],["5","firm"],["20","wilted"],["40","very wilted"]],
+  c:["More dissolved ions outside the roots made osmosis pull water out of the plant","Salt is food, so more salt gave more energy","Salt made the water nonpolar","The plants wilted because salt has no ions"],
+  h:"Salt dissolves into Na⁺ and Cl⁻ ions. Which way does water move when the outside has more dissolved ions?",
+  ex:"Water moves toward the side with more dissolved ions. At 20–40 g, the outside was 'saltier' than the cells, so osmosis pulled water out.",
+  tip:"Dissolved ions are not energy. Too many ions outside the roots reverses the direction water moves."}
+];
+
+/* ===== State ===== */
+let S;
+function fresh(){
+  return {name:"",hour:"",level:1,streak:0,score:0,n:0,maxLevel:1,hints:0,
+    used:new Set(),cur:null,hintUsed:false,answered:false,
+    log:[], byTopic:{}};
+}
+
+/* ===== Helpers ===== */
+const $ = id => document.getElementById(id);
+const show = (id,on=true) => $(id).classList.toggle("hidden",!on);
+function shuffle(a){a=a.slice();for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
+function esc(s){return String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));}
+
+function pick(wanted){
+  const inT = q => S.topics.includes(q.t);
+  let level = wanted;
+  for(const d of [0,-1,1,-2,2,-3,3,-4,4]){ const L = wanted + d; if(L>=1 && L<=5 && BANK.some(q=>q.l===L && inT(q))){ level = L; break; } }
+  let pool = BANK.filter(q=>q.l===level && inT(q) && !S.used.has(q));
+  if(!pool.length){ // recycle this level if exhausted (avoid the same one twice in a row)
+    BANK.filter(q=>q.l===level && inT(q)).forEach(q=>S.used.delete(q));
+    pool = BANK.filter(q=>q.l===level && inT(q) && q!==S.cur);
+    if(!pool.length) pool = BANK.filter(q=>q.l===level && inT(q));
+  }
+  // prefer a topic the student has seen least
+  const cnt = t => (S.byTopic[t]?.n||0);
+  const min = Math.min(...pool.map(q=>cnt(q.t)));
+  pool = pool.filter(q=>cnt(q.t)===min);
+  const q = pool[Math.floor(Math.random()*pool.length)];
+  S.used.add(q);
+  return q;
+}
+
+/* ===== Plant drawing ===== */
+function drawPlant(level){
+  const L = level;
+  let s = `<rect x="30" y="100" width="60" height="34" rx="4" fill="#b5653a"/><rect x="25" y="94" width="70" height="12" rx="3" fill="#c9784a"/>`;
+  s += `<ellipse cx="60" cy="96" rx="30" ry="4" fill="#5a3a22"/>`;
+  if(L===1){ s += `<ellipse cx="60" cy="92" rx="9" ry="6" fill="#d9c08a" stroke="#8a6d3b"/>`; }
+  if(L>=2){ // roots below soil shown as base + small roots
+    s += `<ellipse cx="60" cy="92" rx="11" ry="6" fill="#f2f0e4" stroke="#9aa58a"/>`;
+    s += `<path d="M54 97 q-4 8 -8 12 M60 98 q0 8 0 13 M66 97 q4 8 8 12" stroke="#e6e1cc" stroke-width="2" fill="none"/>`;
+  }
+  if(L>=3){
+    const h = [0,0,0,28,44,58][L];
+    s += `<path d="M60 88 L60 ${88-h}" stroke="#4f8a35" stroke-width="4" stroke-linecap="round"/>`;
+    s += `<path d="M60 ${88-h+6} q-18 -10 -22 -2 q8 8 22 2z" fill="#6aa84f"/>`;
+    s += `<path d="M60 ${88-h+6} q18 -10 22 -2 q-8 8 -22 2z" fill="#6aa84f"/>`;
+  }
+  if(L>=4){
+    s += `<path d="M60 70 q-22 -6 -26 4 q12 6 26 -4z" fill="#4f8a35"/><path d="M60 64 q22 -6 26 4 q-12 6 -26 -4z" fill="#4f8a35"/>`;
+  }
+  if(L>=5){
+    s += `<path d="M60 52 q-16 -4 -20 4 q10 5 20 -4z" fill="#3f7a2a"/><path d="M60 48 q16 -4 20 4 q-10 5 -20 -4z" fill="#3f7a2a"/>`;
+    s += `<circle cx="60" cy="26" r="7" fill="#f2c94c"/><circle cx="60" cy="26" r="3" fill="#e4572e"/>`;
+  }
+  $("plant").innerHTML = s;
+}
+
+/* ===== Flow ===== */
+function start(){
+  const nm = $("nameIn").value.trim();
+  if(!nm){ show("nameErr"); return; }
+  const topics = [...document.querySelectorAll("#topicPick input:checked")].map(i=>i.value);
+  if(!topics.length){ show("topicErr"); return; }
+  show("topicErr",false);
+  S = fresh(); S.name = nm; S.hour = $("hourIn").value.trim(); S.topics = topics;
+  $("whoTag").textContent = S.name + (S.hour?` · Hour ${S.hour}`:"");
+  show("start",false); show("results",false); show("game");
+  next();
+}
+
+function next(){
+  if(S.n >= GAME_LENGTH){ finish(); return; }
+  S.cur = pick(S.level); S.hintUsed=false; S.answered=false;
+  const q = S.cur, tp = TOPICS[q.t];
+  $("topicTag").textContent = tp.name; $("topicTag").className = "tag "+tp.cls;
+  $("lvlTag").textContent = `Level ${q.l} · ${LEVEL_SKILL[q.l-1]}`;
+  $("qText").textContent = q.q;
+  $("qData").innerHTML = q.data ? "<table class='data'>"+q.data.map((r,i)=>"<tr>"+r.map(c=>i?`<td>${esc(c)}</td>`:`<th>${esc(c)}</th>`).join("")+"</tr>").join("")+"</table>" : "";
+  const box = $("choices"); box.innerHTML="";
+  shuffle(q.c).forEach(txt=>{
+    const b=document.createElement("button"); b.className="choice"; b.textContent=txt;
+    b.onclick=()=>answer(b,txt); box.appendChild(b);
+  });
+  show("hintBox",false); show("fb",false); show("nextBtn",false);
+  $("hintBtn").disabled=false;
+  hud();
+}
+
+function hint(){
+  if(S.answered||S.hintUsed) return;
+  S.hintUsed=true; S.hints++;
+  $("hintBox").innerHTML = `<p><strong>Strategy:</strong> ${esc(S.cur.h)}</p>`;
+  show("hintBox"); $("hintBtn").disabled=true;
+}
+
+function answer(btn, txt){
+  if(S.answered) return;
+  S.answered=true;
+  const q=S.cur, right = txt===q.c[0];
+  [...$("choices").children].forEach(b=>{
+    b.disabled=true;
+    if(b.textContent===q.c[0]) b.classList.add("right");
+  });
+  if(!right) btn.classList.add("wrong");
+  $("hintBtn").disabled=true;
+
+  S.n++;
+  const t = S.byTopic[q.t] || (S.byTopic[q.t]={n:0,right:0,missed:[]});
+  t.n++;
+  const before = S.level;
+  let msg="";
+  if(right){
+    t.right++;
+    const pts = Math.round(q.l*100*(S.hintUsed?0.5:1)) + (S.streak>=1?25:0);
+    S.score += pts;
+    S.streak++;
+    if(S.streak>=2 && S.level<5){ S.level++; S.streak=0; msg=`Level up! Your scrap grew to <strong>${STAGES[S.level-1]}</strong>.`; }
+    else if(S.streak>=2 && S.level===5){ S.streak=0; msg="Max level – keep harvesting!"; }
+    else msg="One more correct in a row to level up.";
+    $("fb").className="box good";
+    $("fb").innerHTML=`<p><strong>Correct! +${pts} points.</strong></p><p>${esc(q.ex)}</p><p class="levelmsg">${msg}</p>`;
+  } else {
+    t.missed.push(q.q);
+    S.streak=0;
+    if(S.level>1){ S.level--; msg=`Back to Level ${S.level} (${STAGES[S.level-1]}) for practice.`; }
+    else msg="Staying at Level 1 – you've got this.";
+    $("fb").className="box bad";
+    $("fb").innerHTML=`<p><strong>Not quite.</strong> Correct answer: <strong>${esc(q.c[0])}</strong></p><p>${esc(q.ex)}</p><p><strong>Tip:</strong> ${esc(q.tip)}</p><p class="levelmsg">${msg}</p>`;
+  }
+  S.maxLevel=Math.max(S.maxLevel,S.level);
+  S.log.push({lvl:q.l,topic:TOPICS[q.t].name,right,hint:S.hintUsed});
+  show("fb"); show("nextBtn");
+  $("nextBtn").textContent = S.n>=GAME_LENGTH ? "See my results" : "Next question";
+  $("nextBtn").focus();
+  hud();
+}
+
+function hud(){
+  $("sLevel").textContent=S.level; $("sStreak").textContent=S.streak;
+  $("sScore").textContent=S.score; $("sQ").textContent=`${Math.min(S.n+(S.answered?0:1),GAME_LENGTH)}/${GAME_LENGTH}`;
+  $("stageName").textContent=`Stage: ${STAGES[S.level-1]}`;
+  $("prog").style.width=(S.n/GAME_LENGTH*100)+"%";
+  drawPlant(S.level);
+}
+
+function mastery(){
+  // weighted by level of questions answered correctly in the last 8 questions
+  const recent=S.log.slice(-8);
+  const avgLvl = recent.reduce((a,r)=>a+r.lvl,0)/recent.length;
+  const acc = recent.filter(r=>r.right).length/recent.length;
+  const m = avgLvl*(0.5+acc/2); // 0.5–5
+  if(m>=4.2) return ["Harvest-ready","Mastery: you can use the chemistry to explain data and design tests."];
+  if(m>=3.2) return ["Leafy","Proficient: you connect ideas well. Practice reading data tables and making claims."];
+  if(m>=2.2) return ["Sprouting","Developing: you know the concepts. Practice applying them to regrow jars."];
+  return ["Rooting","Beginning: review the Key Vocabulary boxes in the Text Set, then play again."];
+}
+
+function finish(){
+  show("game",false); show("results");
+  const right=S.log.filter(r=>r.right).length;
+  const [title,desc]=mastery();
+  $("rWho").textContent=`${S.name}${S.hour?" · Hour "+S.hour:""} · ${new Date().toLocaleString()}`;
+  $("rTitle").textContent=title;
+  $("rSummary").innerHTML=`${desc}<br><strong>${right}/${S.n} correct</strong> · Highest level: <strong>${S.maxLevel}</strong> · Final level: <strong>${S.level}</strong> · Hints: <strong>${S.hints}</strong> · Points: <strong>${S.score}</strong>`;
+  const bars=$("rBars"); bars.innerHTML="";
+  const lines=[];
+  Object.keys(TOPICS).forEach(k=>{
+    const t=S.byTopic[k]; if(!t) return;
+    const pct=Math.round(t.right/t.n*100);
+    lines.push(`${TOPICS[k].name}: ${t.right}/${t.n} (${pct}%)`);
+    bars.insertAdjacentHTML("beforeend",`<div class="bar"><span>${TOPICS[k].name}</span><div class="track"><div class="fill" style="width:${pct}%;background:${TOPICS[k].color}"></div></div><span>${t.right}/${t.n}</span></div>`);
+  });
+  const weak=Object.keys(S.byTopic).filter(k=>S.byTopic[k].right/S.byTopic[k].n<0.7);
+  $("rReview").innerHTML = weak.length
+    ? "<ul>"+weak.map(k=>`<li><strong>${TOPICS[k].name}</strong> – reread ${({matter:"Text A",water:"Text B",macro:"Text C",enzyme:"Text D",design:"Text E"})[k]}.</li>`).join("")+"</ul>"
+    : "<p>No weak spots this round – nice work. Try to finish at Level 5.</p>";
+  const txt=[
+    `REGROW OR ROT? – Chapter 2 results`,
+    `Name: ${S.name}${S.hour?"   Hour: "+S.hour:""}`,
+    `Date: ${new Date().toLocaleString()}`,
+    `Sections: ${S.topics.map(k=>TOPICS[k].sec+" "+TOPICS[k].name).join(", ")}`,
+    `Mastery: ${title}`,
+    `Correct: ${right}/${S.n}   Highest level: ${S.maxLevel}   Final level: ${S.level}`,
+    `Hints used: ${S.hints}   Points: ${S.score}`,
+    `By topic:`, ...lines.map(l=>"  "+l),
+    `Level path: ${S.log.map(r=>r.lvl+(r.right?"✓":"✗")).join(" ")}`
+  ].join("\n");
+  $("rText").textContent=txt;
+  window.scrollTo(0,0);
+}
+
+/* ===== Wire up ===== */
+$("lenTxt").textContent=GAME_LENGTH;
+(function(){
+  let want = null;
+  try{ const p = new URLSearchParams(location.search).get("topics"); if(p) want = p.split(",").map(x=>x.trim()).filter(x=>TOPICS[x]); }catch(e){}
+  if(!want || !want.length) want = Object.keys(TOPICS);
+  $("topicPick").innerHTML = Object.keys(TOPICS).map(k=>`<label class="pick"><input type="checkbox" value="${k}" ${want.includes(k)?"checked":""}> ${TOPICS[k].sec} ${TOPICS[k].name}</label>`).join("");
+})();
+$("yesBtn").onclick=start;
+$("noBtn").onclick=()=>{show("waitMsg");show("nameErr",false);};
+$("hintBtn").onclick=hint;
+$("nextBtn").onclick=next;
+$("againBtn").onclick=()=>{show("results",false);show("start");show("waitMsg",false);show("nameErr",false);window.scrollTo(0,0);};
+$("copyBtn").onclick=async()=>{
+  try{ await navigator.clipboard.writeText($("rText").textContent); }
+  catch(e){ const r=document.createRange(); r.selectNode($("rText")); const s=getSelection(); s.removeAllRanges(); s.addRange(r); document.execCommand("copy"); }
+  show("copyMsg"); setTimeout(()=>show("copyMsg",false),2000);
+};
+document.addEventListener("keydown",e=>{
+  if($("game").classList.contains("hidden")) return;
+  if(e.key==="Enter" && !$("nextBtn").classList.contains("hidden")) next();
+  if((e.key==="h"||e.key==="H") && !S.answered) hint();
+});
+drawPlant(1);
+</script>
+</body>
+</html>
