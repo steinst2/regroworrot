@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Keep the Jar Alive</title>
+<style>
+  :root{
+    --forest:#1f4e2c; --leaf:#4f8a35; --leaf-lt:#e8f2e1; --rot:#e4572e; --rot-lt:#fdebe5;
+    --water:#2e86ab; --water-lt:#e3f1f7; --gold:#b7791f; --gold-lt:#faf1e1;
+    --ink:#1d2a22; --muted:#5d6b62; --card:#ffffff; --bg:#f3f6f1; --line:#d8e2d3;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--ink);line-height:1.4;-webkit-tap-highlight-color:transparent}
+  header{background:var(--forest);color:#fff;padding:12px 16px}
+  header .wrap{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+  header h1{font-family:Georgia,serif;font-size:1.3rem;margin:0}
+  header a{color:#cfe6c4;font-size:.85rem}
+  .wrap{max-width:860px;margin:0 auto}
+  main{padding:16px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px;margin-bottom:14px}
+  .stage{display:grid;grid-template-columns:220px 1fr;gap:18px;align-items:start}
+  .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:12px}
+  .stat{background:var(--leaf-lt);border-radius:10px;padding:8px;text-align:center}
+  .stat b{display:block;font-size:1.25rem}
+  .stat span{font-size:.7rem;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
+  .meterlabel{display:flex;justify-content:space-between;font-size:.8rem;color:var(--muted);margin-top:10px}
+  .phbar{position:relative;height:30px;border-radius:8px;border:1px solid var(--line);
+    background:linear-gradient(90deg,#f6c9bd 0%,#f6c9bd 42.86%,#bfe3a8 42.86%,#bfe3a8 50%,#cfe3f2 50%,#cfe3f2 100%)}
+  .phbar .tick{position:absolute;top:7px;font-size:.7rem;color:var(--muted);transform:translateX(-50%)}
+  .marker{position:absolute;top:-8px;width:4px;height:46px;background:var(--ink);border-radius:2px;transform:translateX(-50%);transition:left .1s linear}
+  .marker::after{content:attr(data-ph);position:absolute;top:-22px;left:50%;transform:translateX(-50%);font-weight:800;font-size:.85rem;background:var(--ink);color:#fff;padding:1px 6px;border-radius:6px;white-space:nowrap}
+  .rot{height:14px;background:var(--line);border-radius:8px;overflow:hidden}
+  .rot i{display:block;height:100%;background:var(--rot);width:0%;transition:width .1s linear}
+  .h-note{font-weight:700;margin:10px 0 0;min-height:1.4em}
+  .controls{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px}
+  .btn{font:inherit;font-weight:800;border:0;border-radius:12px;padding:14px 12px;cursor:pointer;font-size:1rem}
+  .btn.water{background:var(--water);color:#fff}
+  .btn.buffer{background:var(--gold);color:#fff}
+  .btn.primary{background:var(--forest);color:#fff}
+  .btn.ghost{background:transparent;border:2px solid var(--line);color:var(--ink)}
+  .btn:disabled{opacity:.45;cursor:default}
+  .btn small{display:block;font-weight:600;font-size:.72rem;opacity:.9}
+  .event{min-height:2.6em;margin-top:12px;padding:8px 12px;border-radius:10px;background:var(--gold-lt);font-weight:700;opacity:0;transition:opacity .2s}
+  .event.on{opacity:1}
+  .overlay{position:fixed;inset:0;background:rgba(20,35,25,.55);display:flex;align-items:center;justify-content:center;padding:16px;z-index:10}
+  .overlay .card{max-width:520px;width:100%;margin:0}
+  .choices{display:grid;gap:8px;margin-top:10px}
+  .choice{font:inherit;text-align:left;padding:12px;border:2px solid var(--line);border-radius:10px;background:#fff;cursor:pointer;font-weight:600}
+  .choice.right{border-color:var(--leaf);background:var(--leaf-lt)}
+  .choice.wrong{border-color:var(--rot);background:var(--rot-lt)}
+  .timer{height:6px;background:var(--line);border-radius:4px;overflow:hidden;margin-top:10px}
+  .timer i{display:block;height:100%;background:var(--gold);width:100%}
+  .big{font-size:2.2rem;font-weight:800;color:var(--forest);margin:4px 0}
+  .hidden{display:none !important}
+  ul.how{padding-left:18px;margin:8px 0}
+  ul.how li{margin:4px 0}
+  kbd{background:#eef1ec;border:1px solid var(--line);border-radius:4px;padding:0 5px;font-size:.85em}
+  @media (max-width:600px){ .stage{grid-template-columns:1fr} #jar{max-width:220px;margin:0 auto;display:block} .stats{grid-template-columns:repeat(2,1fr)} }
+</style>
+</head>
+<body>
+<header><div class="wrap"><h1>Keep the Jar Alive</h1><a href="index.html">← Back to Regrow or Rot?</a></div></header>
+<main class="wrap">
+
+  <section class="card stage">
+    <svg id="jar" viewBox="0 0 200 260" aria-label="Your regrow jar"></svg>
+    <div>
+      <div class="stats">
+        <div class="stat"><b id="sGrow">0.0</b><span>cm grown</span></div>
+        <div class="stat"><b id="sCombo">×1.0</b><span>Combo</span></div>
+        <div class="stat"><b id="sDay">1</b><span>Day</span></div>
+        <div class="stat"><b id="sBest">0.0</b><span>Best</span></div>
+      </div>
+      <div class="meterlabel" style="margin-bottom:26px"><span>← acidic (more H⁺)</span><span>safe zone 6–7</span><span>basic (more OH⁻) →</span></div>
+      <div class="phbar" id="phbar"><div class="marker" id="marker" data-ph="7.0" style="left:50%"></div></div>
+      <p class="h-note" id="hNote">pH 7 – neutral.</p>
+      <div class="meterlabel"><span>Rot meter</span><span id="rotPct">0%</span></div>
+      <div class="rot"><i id="rotBar"></i></div>
+      <div class="controls">
+        <button class="btn water" id="waterBtn">Change water <small id="waterSub">resets pH, washes out bacteria · W</small></button>
+        <button class="btn buffer" id="bufferBtn">Add buffer (<span id="bufN">2</span>) <small id="bufSub">slows pH change for 8 s · B</small></button>
+      </div>
+      <div class="event" id="event"></div>
+    </div>
+  </section>
+
+  <section class="card">
+    <strong>How to play:</strong>
+    <ul class="how">
+      <li>Bacteria in the jar keep adding H⁺ ions, so the pH keeps dropping. Keep it in the <strong>green safe zone (pH 6–7)</strong>.</li>
+      <li>Your scrap only grows in the safe zone. Stay there to build your <strong>combo</strong>.</li>
+      <li>Outside the zone, the <strong>rot meter</strong> fills. The farther out, the faster it rots. At 100%, the scrap is compost.</li>
+      <li>Answer the pop-up questions right to earn more buffer.</li>
+    </ul>
+  </section>
+</main>
+
+<!-- start / game over -->
+<div class="overlay" id="startOv">
+  <div class="card">
+    <p class="big" style="margin-top:0">Keep the Jar Alive</p>
+    <p>Bacteria are trying to rot your scrap by making the water acidic. Keep the pH between <strong>6 and 7</strong> as long as you can.</p>
+    <p><kbd>W</kbd> change water · <kbd>B</kbd> add buffer (or tap the buttons)</p>
+    <button class="btn primary" id="startBtn" style="width:100%">Start</button>
+  </div>
+</div>
+<div class="overlay hidden" id="overOv">
+  <div class="card">
+    <p style="margin:0;color:var(--muted)">Your scrap rotted on Day <span id="oDay">1</span>.</p>
+    <p class="big" id="oScore">0.0 cm</p>
+    <p id="oBest" style="font-weight:700"></p>
+    <p id="oWhy"></p>
+    <button class="btn primary" id="againBtn" style="width:100%">One more try</button>
+  </div>
+</div>
+<div class="overlay hidden" id="quizOv">
+  <div class="card">
+    <p style="margin:0;font-weight:800;color:var(--gold)">QUICK QUESTION – earn a buffer!</p>
+    <p id="qText" style="font-size:1.1rem;font-weight:700;margin:8px 0 0"></p>
+    <div class="choices" id="qChoices"></div>
+    <div class="timer"><i id="qTimer"></i></div>
+    <p id="qFb" style="font-weight:700;min-height:1.2em;margin:8px 0 0"></p>
+  </div>
+</div>
+
+<script>
+/* ===== Quick questions (2-1 and 2-2). First choice is correct; shuffled on display. ===== */
+const QS = [
+  ["Fertilizer potassium is K⁺. Did it gain or lose an electron?", ["Lost one","Gained one","Lost a proton"]],
+  ["pH 5 has how many times more H⁺ than pH 7?", ["100 times","2 times","20 times"]],
+  ["Water sticking to water is called…", ["Cohesion","Adhesion","Osmosis"]],
+  ["Which particle has a negative charge?", ["Electron","Proton","Neutron"]],
+  ["A substance that resists changes in pH is a…", ["Buffer","Catalyst","Solute"]],
+  ["Roots can only take in nutrients as dissolved…", ["Ions","Pellets","Isotopes"]],
+  ["Too much fertilizer makes water move ___ of the roots.", ["Out","In","Nowhere"]],
+  ["Salt stirred into water makes a…", ["Solution","Suspension","Polymer"]],
+  ["In a covalent bond, electrons are…", ["Shared","Transferred","Destroyed"]],
+  ["A LOWER pH number means ___ H⁺ ions.", ["More","Fewer","The same"]],
+  ["Isotopes of an element differ in their number of…", ["Neutrons","Protons","Electrons"]],
+  ["The best pH range for most vegetables is…", ["6 to 7","2 to 3","9 to 10"]],
+  ["In salt water, the water is the…", ["Solvent","Solute","Suspension"]],
+  ["Dyed water climbing up celery is…", ["Capillary action","Osmosis","A buffer"]],
+  ["A neutral nitrogen atom has 7 protons. How many electrons?", ["7","14","0"]],
+  ["Soil shaken in water that settles out is a…", ["Suspension","Solution","Buffer"]],
+  ["Water's oxygen end is slightly…", ["Negative","Positive","Neutral"]],
+  ["Baking soda (pH 9) is…", ["Basic","Acidic","Neutral"]]
+];
+
+/* ===== State ===== */
+const $ = id => document.getElementById(id);
+const TICK = 100;
+let G, timer = null, best = 0;
+try { best = parseFloat(localStorage.getItem("jarBest")) || 0; } catch(e) {}
+$("sBest").textContent = best.toFixed(1);
+
+function fresh(){
+  return { ph:7, bac:0, rot:0, grow:0, combo:1, buf:2, bufT:0, waterCD:0,
+    nextEvent:80, nextQuiz:200, t:0, paused:false, over:false, cause:"acid", usedQ:[] };
+}
+function day(){ return 1 + Math.floor(G.grow / 10); }
+
+/* ===== Jar drawing ===== */
+const DOTS = Array.from({length:40}, (_, i) => [40 + ((i * 53) % 120), 120 + ((i * 37) % 110)]);
+function waterColor(p){
+  if (p >= 6 && p <= 7) return "#bfe3a8";
+  if (p < 6) { const k = Math.min(1, (6 - p) / 3); return `rgb(${Math.round(191 + 40*k)},${Math.round(227 - 90*k)},${Math.round(168 - 90*k)})`; }
+  const k = Math.min(1, (p - 7) / 3); return `rgb(${Math.round(191 - 60*k)},${Math.round(227 - 40*k)},${Math.round(168 + 80*k)})`;
+}
+function drawJar(){
+  const p = G ? G.ph : 7, g = G ? G.grow : 0, b = G ? G.bac : 0, r = G ? G.rot : 0;
+  const stemH = Math.min(110, 10 + g * 3.5);
+  const leaves = Math.min(6, Math.floor(g / 3));
+  const brown = r / 100;
+  let s = `<rect x="30" y="40" width="140" height="205" rx="18" fill="#f7faf6" stroke="#9fb0a4" stroke-width="3"/>`;
+  s += `<rect x="24" y="30" width="152" height="16" rx="6" fill="#cfd8cf"/>`;
+  s += `<rect x="33" y="110" width="134" height="132" rx="14" fill="${waterColor(p)}" opacity="0.85"/>`;
+  DOTS.slice(0, Math.min(40, Math.round(b * 3))).forEach(([x, y]) => { s += `<circle cx="${x}" cy="${y}" r="2.6" fill="#7a5c2e" opacity="0.75"/>`; });
+  const stemColor = brown > 0.5 ? "#8a7a3a" : "#4f8a35";
+  s += `<path d="M100 200 L100 ${200 - stemH}" stroke="${stemColor}" stroke-width="5" stroke-linecap="round"/>`;
+  for (let i = 0; i < leaves; i++) {
+    const y = 200 - 18 - i * (stemH - 20) / Math.max(1, leaves);
+    const side = i % 2 ? 1 : -1;
+    s += `<path d="M100 ${y} q${22*side} -12 ${30*side} 2 q${-12*side} 10 ${-30*side} -2z" fill="${brown > 0.5 ? '#9a8a4a' : '#6aa84f'}"/>`;
+  }
+  s += `<ellipse cx="100" cy="206" rx="20" ry="11" fill="${brown > 0.6 ? '#b59a6a' : '#f2f0e4'}" stroke="#9aa58a"/>`;
+  s += `<path d="M90 215 q-6 12 -12 18 M100 217 q0 12 0 20 M110 215 q6 12 12 18" stroke="#e6e1cc" stroke-width="2.5" fill="none"/>`;
+  $("jar").innerHTML = s;
+}
+
+/* ===== HUD ===== */
+function hud(){
+  const p = G.ph;
+  const m = $("marker");
+  m.style.left = (Math.max(0, Math.min(14, p)) / 14 * 100) + "%";
+  m.dataset.ph = p.toFixed(1);
+  let note;
+  if (p < 7) { const x = Math.pow(10, 7 - p); note = `pH ${p.toFixed(1)} → about ${x < 10 ? x.toFixed(1) : Math.round(x).toLocaleString()}× more H⁺ than pure water`; }
+  else if (p > 7.05) { note = `pH ${p.toFixed(1)} → basic: extra OH⁻ ions`; }
+  else note = "pH 7 – neutral.";
+  if (p < 6) note += " · TOO ACIDIC!"; else if (p > 7) note += " · TOO BASIC!";
+  $("hNote").textContent = note;
+  $("hNote").style.color = (p < 6 || p > 7) ? "var(--rot)" : "var(--forest)";
+  $("rotBar").style.width = G.rot + "%";
+  $("rotPct").textContent = Math.round(G.rot) + "%";
+  $("sGrow").textContent = G.grow.toFixed(1);
+  $("sCombo").textContent = "×" + G.combo.toFixed(1);
+  $("sDay").textContent = day();
+  $("bufN").textContent = G.buf;
+  $("waterBtn").disabled = G.waterCD > 0 || G.paused || G.over;
+  $("waterSub").textContent = G.waterCD > 0 ? `refilling… ${(G.waterCD / 10).toFixed(1)} s` : "resets pH, washes out bacteria · W";
+  $("bufferBtn").disabled = G.buf <= 0 || G.bufT > 0 || G.paused || G.over;
+  $("bufSub").textContent = G.bufT > 0 ? `buffer working… ${(G.bufT / 10).toFixed(1)} s` : "slows pH change for 8 s · B";
+  drawJar();
+}
+
+/* ===== Events ===== */
+let evTimer = null;
+function flash(msg){
+  const e = $("event"); e.textContent = msg; e.classList.add("on");
+  clearTimeout(evTimer); evTimer = setTimeout(() => e.classList.remove("on"), 2600);
+}
+function randomEvent(){
+  const d = day(), r = Math.random();
+  if (r < 0.45) { G.ph -= 0.6; G.bac += 2; flash("A leaf is rotting! Bacteria add H⁺ ions (pH ↓)"); }
+  else if (r < 0.7) { G.ph -= 1.0; flash("Lemon juice splashed in! Lots of H⁺ ions (pH ↓)"); }
+  else { G.ph += 1.2 + 0.1 * d; flash("Baking soda spill! OH⁻ ions make it basic (pH ↑)"); }
+  G.nextEvent = Math.max(40, 95 - d * 8) + Math.floor(Math.random() * 30);
+}
+
+/* ===== Quiz ===== */
+let qInt = null;
+function quiz(){
+  G.paused = true;
+  let pool = QS.map((q, i) => i).filter(i => !G.usedQ.includes(i));
+  if (!pool.length) { G.usedQ = []; pool = QS.map((q, i) => i); }
+  const i = pool[Math.floor(Math.random() * pool.length)]; G.usedQ.push(i);
+  const [q, c] = QS[i];
+  $("qText").textContent = q; $("qFb").textContent = "";
+  const box = $("qChoices"); box.innerHTML = "";
+  const opts = c.slice().sort(() => Math.random() - 0.5);
+  let answered = false, left = 80;
+  const done = (ok, btn) => {
+    if (answered) return; answered = true; clearInterval(qInt);
+    [...box.children].forEach(b => { b.disabled = true; if (b.textContent === c[0]) b.classList.add("right"); });
+    if (ok) { G.buf = Math.min(5, G.buf + 1); G.grow += 1; $("qFb").textContent = "Correct! +1 buffer, +1 cm"; $("qFb").style.color = "var(--leaf)"; }
+    else { if (btn) btn.classList.add("wrong"); $("qFb").textContent = `Answer: ${c[0]}`; $("qFb").style.color = "var(--rot)"; }
+    setTimeout(() => { $("quizOv").classList.add("hidden"); G.paused = false; G.nextQuiz = 200; hud(); }, ok ? 900 : 1800);
+  };
+  opts.forEach(o => { const b = document.createElement("button"); b.className = "choice"; b.textContent = o; b.onclick = () => done(o === c[0], b); box.appendChild(b); });
+  $("qTimer").style.width = "100%";
+  qInt = setInterval(() => { left--; $("qTimer").style.width = (left / 80 * 100) + "%"; if (left <= 0) done(false, null); }, 100);
+  $("quizOv").classList.remove("hidden");
+}
+
+/* ===== Main loop ===== */
+function step(){
+  if (G.paused || G.over) return;
+  G.t++;
+  const d = day(), speed = 1 + 0.25 * (d - 1);
+  G.bac += 0.02 * speed;
+  const drift = (0.004 + G.bac * 0.0025) * speed * (G.bufT > 0 ? 0.35 : 1);
+  G.ph -= drift;
+  if (G.bufT > 0) G.bufT--;
+  if (G.waterCD > 0) G.waterCD--;
+  G.ph = Math.max(1, Math.min(13, G.ph));
+
+  const inZone = G.ph >= 6 && G.ph <= 7;
+  if (inZone) {
+    G.combo = Math.min(3, G.combo + 0.01);
+    G.grow += 0.02 * G.combo;
+    G.rot = Math.max(0, G.rot - 0.15);
+  } else {
+    G.combo = 1;
+    const dist = G.ph < 6 ? 6 - G.ph : G.ph - 7;
+    G.cause = G.ph < 6 ? "acid" : "base";
+    G.rot += 1.2 * dist;
+  }
+  if (--G.nextEvent <= 0) randomEvent();
+  if (--G.nextQuiz <= 0) quiz();
+  if (G.rot >= 100) { G.rot = 100; gameOver(); }
+  hud();
+}
+
+function changeWater(){
+  if (!G || G.over || G.paused || G.waterCD > 0) return;
+  G.ph = 7; G.bac = 0; G.waterCD = 50;
+  flash("Fresh water! Bacteria washed out, pH back to 7.");
+  hud();
+}
+function addBuffer(){
+  if (!G || G.over || G.paused || G.buf <= 0 || G.bufT > 0) return;
+  G.buf--; G.bufT = 80;
+  flash("Buffer added – pH changes much more slowly for 8 s.");
+  hud();
+}
+
+function gameOver(){
+  G.over = true; clearInterval(timer);
+  const score = G.grow, isBest = score > best;
+  if (isBest) { best = score; try { localStorage.setItem("jarBest", String(best)); } catch(e) {} }
+  $("sBest").textContent = best.toFixed(1);
+  $("oDay").textContent = day();
+  $("oScore").textContent = score.toFixed(1) + " cm";
+  $("oBest").textContent = isBest ? "New personal best!" : `Your best: ${best.toFixed(1)} cm`;
+  $("oWhy").textContent = G.cause === "acid"
+    ? "Why it rotted: bacteria and rotting tissue kept adding H⁺ ions. Below pH 6, the scrap's enzymes bend out of shape and the bacteria win. Tip: change the water BEFORE it leaves the green zone."
+    : "Why it rotted: the water got too basic from extra OH⁻ ions. The scrap's enzymes don't work well above pH 7 either. Tip: fresh water resets the pH to 7.";
+  $("overOv").classList.remove("hidden");
+}
+
+function start(){
+  G = fresh();
+  ["startOv", "overOv", "quizOv"].forEach(id => $(id).classList.add("hidden"));
+  $("event").classList.remove("on");
+  clearInterval(timer); timer = setInterval(step, TICK);
+  hud();
+}
+
+/* ===== Wire up ===== */
+(function ticks(){
+  const bar = $("phbar");
+  for (let i = 0; i <= 14; i += 2) { const t = document.createElement("span"); t.className = "tick"; t.style.left = (i / 14 * 100) + "%"; t.textContent = i; bar.appendChild(t); }
+})();
+$("startBtn").onclick = start;
+$("againBtn").onclick = start;
+$("waterBtn").onclick = changeWater;
+$("bufferBtn").onclick = addBuffer;
+document.addEventListener("keydown", e => {
+  const k = e.key.toLowerCase();
+  if (k === "w") changeWater();
+  if (k === "b") addBuffer();
+  if (k === "enter" && G && G.over) start();
+});
+G = fresh(); hud();
+</script>
+</body>
+</html>
