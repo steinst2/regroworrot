@@ -100,16 +100,17 @@
     <label>Sections in this game</label>
     <div class="picks" id="topicPick"></div>
     <label for="nameIn">First and last name</label>
-    <input type="text" id="nameIn" autocomplete="off">
+    <input type="text" id="nameIn" autocomplete="off" placeholder="Type your first and last name">
+    <p id="nameErr" class="hidden" style="color:var(--rot);font-weight:700;margin:6px 0 0">Type your first and last name first so your teacher gets credit.</p>
     <label for="hourIn">Class hour</label>
-    <input type="text" id="hourIn" autocomplete="off" style="max-width:120px">
+    <input type="text" id="hourIn" autocomplete="off" style="max-width:120px" placeholder="Hour">
+    <p id="hourErr" class="hidden" style="color:var(--rot);font-weight:700;margin:6px 0 0">Type your class hour.</p>
     <p class="q" style="margin-top:20px">Ready to play?</p>
     <div class="row">
       <button class="btn primary" id="yesBtn">Yes – start</button>
       <button class="btn ghost" id="noBtn">No – wait</button>
     </div>
     <p id="waitMsg" class="hidden" style="color:var(--muted)">No problem. Press <strong>Yes</strong> whenever you're ready.</p>
-    <p id="nameErr" class="hidden" style="color:var(--rot);font-weight:600">Enter your name first so your teacher gets credit for your score.</p>
     <p id="topicErr" class="hidden" style="color:var(--rot);font-weight:600">Pick at least one section.</p>
   </section>
 
@@ -169,6 +170,16 @@
   </section>
 </main>
 
+<script>
+/* Show any error on screen (instead of a blank page) so it can be screenshotted and fixed. */
+window.addEventListener("error", function(ev){
+  var box = document.getElementById("errBox");
+  if(!box){ box = document.createElement("div"); box.id = "errBox";
+    box.style.cssText = "position:fixed;left:12px;right:12px;bottom:12px;z-index:99;background:#fdebe5;border:2px solid #e4572e;border-radius:10px;padding:10px 14px;font:600 14px system-ui;color:#1d2a22";
+    document.body.appendChild(box); }
+  box.textContent = "Something went wrong. Take a screenshot and show your teacher. (" + (ev.message || "error") + " – line " + (ev.lineno || "?") + ") Then press Ctrl+Shift+R to reload.";
+});
+</script>
 <script>
 /* ===== Settings ===== */
 const GAME_LENGTH = 15;
@@ -532,9 +543,10 @@ function drawPlant(level){
 /* ===== Flow ===== */
 function start(){
   const nm = $("nameIn").value.trim();
-  if(!nm){ show("nameErr"); return; }
+  if(!nm){ needFix($("nameIn"), "nameErr"); return; }
+  if(!$("hourIn").value.trim()){ needFix($("hourIn"), "hourErr"); return; }
   const topics = [...document.querySelectorAll("#topicPick input:checked")].map(i=>i.value);
-  if(!topics.length){ show("topicErr"); return; }
+  if(!topics.length){ needFix($("topicPick"), "topicErr"); return; }
   show("topicErr",false);
   S = fresh(); S.name = nm; S.hour = $("hourIn").value.trim(); S.topics = topics;
   $("whoTag").textContent = S.name + (S.hour?` · Hour ${S.hour}`:"");
@@ -663,6 +675,15 @@ function finish(){
   window.scrollTo(0,0);
 }
 
+/* Missing info: show the message, outline the box in red, and scroll right to it so nobody misses it. */
+function needFix(el, errId){
+  ["nameErr","hourErr","topicErr"].forEach(id=>show(id, id===errId));
+  el.style.outline = "3px solid var(--rot)"; el.style.outlineOffset = "2px";
+  el.scrollIntoView({behavior:"smooth", block:"center"});
+  if(el.focus) el.focus();
+  setTimeout(()=>{ el.style.outline = ""; }, 2500);
+}
+
 /* ===== Wire up ===== */
 $("lenTxt").textContent=GAME_LENGTH;
 (function(){
@@ -672,7 +693,8 @@ $("lenTxt").textContent=GAME_LENGTH;
   $("topicPick").innerHTML = Object.keys(TOPICS).map(k=>`<label class="pick"><input type="checkbox" value="${k}" ${want.includes(k)?"checked":""}> ${TOPICS[k].sec} ${TOPICS[k].name}</label>`).join("");
 })();
 $("yesBtn").onclick=start;
-$("noBtn").onclick=()=>{show("waitMsg");show("nameErr",false);};
+$("noBtn").onclick=()=>{show("waitMsg");["nameErr","hourErr","topicErr"].forEach(id=>show(id,false));};
+["nameIn","hourIn"].forEach(id=>$(id).addEventListener("keydown",e=>{ if(e.key==="Enter") start(); }));
 $("hintBtn").onclick=hint;
 $("nextBtn").onclick=next;
 $("againBtn").onclick=()=>{show("results",false);show("start");show("waitMsg",false);show("nameErr",false);window.scrollTo(0,0);};
